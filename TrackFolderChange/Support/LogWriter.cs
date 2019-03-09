@@ -1,12 +1,11 @@
 using System;
 using System.IO;
-using System.Reflection;
 
 namespace TrackFolderChange.Support
 {
     public class LogWriter
     {
-        private string _logFilePath;
+        private readonly string _logFilePath;
 
         public LogWriter(string logFilePath)
         {
@@ -32,7 +31,6 @@ namespace TrackFolderChange.Support
         {
             try
             {
-                txtWriter.Write("\r\nLog Entry : ");
                 txtWriter.WriteLine("{0} {1}", DateTime.Now.ToLongTimeString(),
                     DateTime.Now.ToLongDateString());
                 txtWriter.WriteLine("  :{0}", logMessage);

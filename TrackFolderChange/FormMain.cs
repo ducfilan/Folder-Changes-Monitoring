@@ -16,7 +16,7 @@ namespace TrackFolderChange
 		private FilePropertiesExtractor _filePropertiesExtractor;
 		private const string FileExtensionPattern = @"(\..*)$";
 
-		IconsHandler _icons;
+		private readonly IconsHandler _icons;
 
 		public FormMain()
 		{
