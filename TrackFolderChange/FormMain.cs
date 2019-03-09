@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using TrackFolderChange.Model;
 using TrackFolderChange.Support;
@@ -12,6 +13,8 @@ namespace TrackFolderChange
         private Dictionary<string, ChangedFolder> _nodes;
         private string _rootFolder;
         private LogWriter _logWriter;
+        private FilePropertiesExtractor _filePropertiesExtractor;
+        private const string FileExtensionPattern = @"(\..*)$";
 
         IconsHandler _icons;
 
@@ -79,9 +82,11 @@ namespace TrackFolderChange
 
         private ChangedFolder GetOrCreateNode(string path, WatcherChangeTypes changeType)
         {
-            var changedUsername = FilePropertiesExtractor.GetSpecificFileProperties(path, 10);
-
-            _logWriter.Write("User: " + changedUsername + "; Path: " + path + "; Type: " + changeType);
+            var changedUsername = _filePropertiesExtractor.GetSpecificFileProperties(path, 10);
+            if (!string.IsNullOrEmpty(changedUsername))
+			{
+				_logWriter.Write("User: " + changedUsername + "; Path: " + path + "; Type: " + changeType);
+			}
 
             ChangedFolder folder;
             var lowerCaseName = Path.GetFullPath(path).ToLower();
@@ -129,8 +134,9 @@ namespace TrackFolderChange
             txtFolderPath.Text = Properties.Settings.Default.FolderPath;
             txtLogFilePath.Text = Properties.Settings.Default.LogFilePath;
 
-            _logWriter = new LogWriter(txtLogFilePath.Text);
-        }
+            _logWriter = new LogWriter(Regex.Replace(txtLogFilePath.Text, FileExtensionPattern, DateTime.Now.ToString("yyyyMMdd") + "$1"));
+            _filePropertiesExtractor = new FilePropertiesExtractor();
+		}
 
         private void btnClear_Click(object sender, EventArgs e)
         {
@@ -156,12 +162,17 @@ namespace TrackFolderChange
             txtLogFilePath.Text = Properties.Settings.Default.LogFilePath = saveFileDialog.FileName;
             Properties.Settings.Default.Save();
 
-            _logWriter = new LogWriter(saveFileDialog.FileName);
+            _logWriter = new LogWriter(Regex.Replace(txtLogFilePath.Text, FileExtensionPattern, DateTime.Now.ToString("yyyyMMdd") + "$1"));
         }
 
         private void btnMonitor_Click(object sender, EventArgs e)
         {
             TryUpdateTree(txtFolderPath.Text);
         }
-    }
+
+		private void BtnHelp_Click(object sender, EventArgs e)
+		{
+			MessageBox.Show("Access rights manipulator by Duc Filan!", "About", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+	}
 }

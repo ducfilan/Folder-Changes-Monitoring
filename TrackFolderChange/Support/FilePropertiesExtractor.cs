@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using Shell32;
@@ -7,7 +7,7 @@ namespace TrackFolderChange.Support
 {
     public class FilePropertiesExtractor
     {
-        public static string GetSpecificFileProperties(string file, params int[] indexes)
+        public string GetSpecificFileProperties(string file, params int[] indexes)
         {
             var result = string.Empty;
 
@@ -15,6 +15,12 @@ namespace TrackFolderChange.Support
             {
                 var fileName = Path.GetFileName(file);
                 var folderName = Path.GetDirectoryName(file);
+
+                if (string.IsNullOrEmpty(folderName))
+                {
+	                return string.Empty;
+                }
+
                 var shell = new Shell32.Shell();
                 var objFolder = shell.NameSpace(folderName);
                 var sb = new StringBuilder();
