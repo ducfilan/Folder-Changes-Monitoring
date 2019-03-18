@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using TrackFolderChange.Model;
 using TrackFolderChange.Support;
@@ -55,28 +56,36 @@ namespace TrackFolderChange
 											 NotifyFilters.LastWrite | NotifyFilters.Security |
 											 NotifyFilters.Size;
 
-			treeView.Nodes.Clear();
+            var folder = CreateNode(rootFolder).Node;
+            folder.Tag = new ChangedFolder(rootFolder, folder);
 
-			var folder = CreateNode(rootFolder).Node;
-			folder.Tag = new ChangedFolder(rootFolder, folder);
-			treeView.Nodes.Add(folder);
+            treeView.Invoke((MethodInvoker)delegate
+            {
+                treeView.Nodes.Clear();
+                treeView.Nodes.Add(folder);
+
+                treeView.Focus();
+            });
+
 			fileSystemWatcher.EnableRaisingEvents = true;
-
-			treeView.Focus();
 		}
 
 
 		private ChangedFolder CreateNode(string path)
-		{
-			var oldTopNode = treeView.TopNode;
-			var name = Path.GetFileName(path);
-			if (path.Equals(_rootFolder, StringComparison.CurrentCultureIgnoreCase))
-				name = path;
-			var folder = new ChangedFolder(path, new TreeNode(name));
-			_nodes[path.ToLower()] = folder;
-			folder.Node.ExpandAll();
-			folder.Node.SelectedImageIndex = folder.Node.ImageIndex = _icons.GetIcon(path);
-			treeView.TopNode = oldTopNode;
+        {
+            ChangedFolder folder = null;
+            treeView.Invoke((MethodInvoker) delegate
+            {
+                var oldTopNode = treeView.TopNode;
+			    var name = Path.GetFileName(path);
+			    if (path.Equals(_rootFolder, StringComparison.CurrentCultureIgnoreCase))
+				    name = path;
+			    folder = new ChangedFolder(path, new TreeNode(name));
+			    _nodes[path.ToLower()] = folder;
+			    folder.Node.ExpandAll();
+			    folder.Node.SelectedImageIndex = folder.Node.ImageIndex = _icons.GetIcon(path);
+                treeView.TopNode = oldTopNode;
+            });
 			return folder;
 		}
 
@@ -87,15 +96,24 @@ namespace TrackFolderChange
 
 			ChangedFolder folder;
 			var lowerCaseName = Path.GetFullPath(path).ToLower();
-			if (lowerCaseName == _rootFolder.ToLower()) return (ChangedFolder)treeView.Nodes[0].Tag;
+            if (lowerCaseName == _rootFolder.ToLower())
+            {
+                ChangedFolder tag = null;
+                treeView.Invoke((MethodInvoker) delegate {
+                    tag = (ChangedFolder)treeView.Nodes[0].Tag;
+                });
+                return tag;
+            }
 			if (!_nodes.TryGetValue(lowerCaseName, out folder))
-			{
-				var parentNode = GetOrCreateNode(Path.GetDirectoryName(path), WatcherChangeTypes.Changed);
-				folder = CreateNode(path);
-				parentNode.Node.Nodes.Add(folder.Node);
-				if (parentNode.Node.Nodes.Count == 1)
-					parentNode.Node.ExpandAll();
-			}
+            {
+                treeView.Invoke((MethodInvoker)delegate {
+                    var parentNode = GetOrCreateNode(Path.GetDirectoryName(path), WatcherChangeTypes.Changed);
+				    folder = CreateNode(path);
+				    parentNode.Node.Nodes.Add(folder.Node);
+				    if (parentNode.Node.Nodes.Count == 1)
+					    parentNode.Node.ExpandAll();
+                });
+            }
 			if (changeType == WatcherChangeTypes.Deleted) folder.MarkAllAsDeleted();
 
 			if (!(changeType == WatcherChangeTypes.Changed && folder.Status == WatcherChangeTypes.Created))
@@ -105,25 +123,24 @@ namespace TrackFolderChange
 			return folder;
 		}
 
-		private void fileSystemWatcher_Changed(object sender, FileSystemEventArgs e)
+		private async void fileSystemWatcher_Changed(object sender, FileSystemEventArgs e)
 		{
-			GetOrCreateNode(e.FullPath, e.ChangeType);
+			await Task.Run(() => GetOrCreateNode(e.FullPath, e.ChangeType));
 		}
 
-		private void fileSystemWatcher_Created(object sender, FileSystemEventArgs e)
-		{
-			GetOrCreateNode(e.FullPath, e.ChangeType);
-		}
+		private async void fileSystemWatcher_Created(object sender, FileSystemEventArgs e)
+        {
+            await Task.Run(() => GetOrCreateNode(e.FullPath, e.ChangeType));
+        }
 
-		private void fileSystemWatcher_Deleted(object sender, FileSystemEventArgs e)
-		{
-			GetOrCreateNode(e.FullPath, e.ChangeType);
-		}
+		private async void fileSystemWatcher_Deleted(object sender, FileSystemEventArgs e)
+        {
+            await Task.Run(() => GetOrCreateNode(e.FullPath, e.ChangeType));
+        }
 
-		private void fileSystemWatcher_Renamed(object sender, RenamedEventArgs e)
-		{
-			GetOrCreateNode(e.OldFullPath, WatcherChangeTypes.Deleted);
-			GetOrCreateNode(e.FullPath, WatcherChangeTypes.Created);
+		private async void fileSystemWatcher_Renamed(object sender, RenamedEventArgs e)
+        {
+            await Task.Run(() => GetOrCreateNode(e.FullPath, e.ChangeType));
 		}
 
 		private void FormMain_Load(object sender, EventArgs e)
@@ -136,16 +153,16 @@ namespace TrackFolderChange
 			_filePropertiesExtractor = new FilePropertiesExtractor();
 		}
 
-		private void btnClear_Click(object sender, EventArgs e)
-		{
-			TryUpdateTree(_rootFolder);
+		private async void btnClear_Click(object sender, EventArgs e)
+        {
+            await Task.Run(() => TryUpdateTree(_rootFolder));
 		}
 
 		private void TryUpdateTree(string path)
-		{
-			try
+        {
+            UpdateTree(path);
+            try
 			{
-				UpdateTree(path);
 			}
 			catch (Exception ex)
 			{
@@ -164,9 +181,9 @@ namespace TrackFolderChange
 				DateTime.Now.ToString("yyyyMMdd") + "$1"));
 		}
 
-		private void btnMonitor_Click(object sender, EventArgs e)
-		{
-			TryUpdateTree(txtFolderPath.Text);
+		private async void btnMonitor_Click(object sender, EventArgs e)
+        {
+            await Task.Run(() => TryUpdateTree(txtFolderPath.Text));
 		}
 
 		private void BtnHelp_Click(object sender, EventArgs e)
